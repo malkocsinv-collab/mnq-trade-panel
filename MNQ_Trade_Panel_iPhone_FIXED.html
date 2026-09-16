@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MNQ Trade Panel</title>
+<style>
+  :root {
+    --bg: #f5f7fb;
+    --card: #ffffff;
+    --text: #172033;
+    --muted: #718096;
+    --border: #e5e9f2;
+    --blue: #173b72;
+    --green: #16845b;
+    --green-soft: #e9f8f1;
+    --red: #c43d4b;
+    --red-soft: #fff0f2;
+    --shadow: 0 12px 35px rgba(22, 35, 58, .08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 28px 18px 50px; }
+  header { display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; }
+  h1 { margin:0; font-size:27px; letter-spacing:-.5px; }
+  .subtitle { color:var(--muted); font-size:13px; margin-top:5px; }
+  .status { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); }
+  .dot { width:9px; height:9px; border-radius:50%; background:#bbb; }
+  .dot.ok { background:var(--green); box-shadow:0 0 0 4px var(--green-soft); }
+  .tabs {
+    display:flex; gap:5px; background:#e9edf4; padding:5px; border-radius:13px; margin-bottom:18px;
+  }
+  .tab {
+    flex:1; border:0; background:transparent; padding:12px; border-radius:9px;
+    font-weight:700; color:var(--muted); cursor:pointer;
+  }
+  .tab.active { background:white; color:var(--blue); box-shadow:0 2px 8px rgba(0,0,0,.05); }
+  .panel { display:none; }
+  .panel.active { display:block; }
+  .card {
+    background:var(--card); border:1px solid var(--border); border-radius:18px;
+    padding:22px; box-shadow:var(--shadow); margin-bottom:16px;
+  }
+  .label { display:block; font-size:12px; font-weight:800; color:var(--muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
+  input[type="number"], input[type="url"] {
+    width:100%; padding:14px 15px; border:1px solid var(--border); border-radius:11px;
+    font-size:18px; outline:none; color:var(--text); background:#fbfcfe;
+  }
+  input:focus { border-color:#9eb3d1; box-shadow:0 0 0 3px #edf3fb; }
+  .direction { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:18px 0; }
+  .dir {
+    border:1px solid var(--border); background:#fbfcfe; padding:15px; border-radius:12px;
+    cursor:pointer; font-size:15px; font-weight:800;
+  }
+  .dir.buy.selected { background:var(--green-soft); border-color:#8bd0b2; color:var(--green); }
+  .dir.sell.selected { background:var(--red-soft); border-color:#e4a0a8; color:var(--red); }
+  .levels { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:18px; }
+  .level { padding:15px; border-radius:12px; background:#f8f9fc; border:1px solid var(--border); }
+  .level small { color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; }
+  .level strong { display:block; margin-top:5px; font-size:20px; }
+  .risk { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+  .metric { padding:13px; border-radius:11px; background:#fafbfe; border:1px solid var(--border); }
+  .metric span { display:block; color:var(--muted); font-size:11px; font-weight:800; }
+  .metric b { font-size:17px; }
+  .btn {
+    width:100%; border:0; border-radius:12px; padding:16px; margin-top:18px;
+    color:white; font-size:16px; font-weight:900; cursor:pointer; transition:.15s;
+  }
+  .btn:hover { transform:translateY(-1px); filter:brightness(.97); }
+  .btn.buy { background:var(--green); }
+  .btn.sell { background:var(--red); }
+  .btn:disabled { opacity:.45; cursor:not-allowed; transform:none; }
+  .close-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .close-btn {
+    min-height:155px; border-radius:17px; border:1px solid var(--border); cursor:pointer;
+    font-size:20px; font-weight:900; background:white; box-shadow:var(--shadow);
+  }
+  .close-btn span { display:block; font-size:13px; margin-top:9px; font-weight:700; }
+  .close-btn.tp { color:var(--green); background:var(--green-soft); border-color:#b5e4cf; }
+  .close-btn.sl { color:var(--red); background:var(--red-soft); border-color:#efc0c6; }
+  .section-title { font-size:16px; font-weight:900; margin-bottom:16px; }
+  .settings { margin-top:16px; }
+  .help { color:var(--muted); font-size:12px; line-height:1.55; margin-top:9px; }
+  .toast {
+    position:fixed; right:18px; bottom:18px; background:#172033; color:white;
+    padding:13px 16px; border-radius:10px; font-size:13px; opacity:0; pointer-events:none;
+    transform:translateY(8px); transition:.2s;
+  }
+  .toast.show { opacity:1; transform:none; }
+
+  .trade-row {
+    display:grid;
+    grid-template-columns:70px 1fr 48px;
+    gap:10px;
+    align-items:end;
+    padding:12px;
+    margin-bottom:9px;
+    background:#f8f9fc;
+    border:1px solid var(--border);
+    border-radius:12px;
+  }
+  .trade-row .label { margin-bottom:6px; }
+  .trade-result {
+    width:100%;
+    padding:13px 12px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:white;
+    font-weight:700;
+    color:var(--text);
+  }
+  .remove-trade {
+    height:46px;
+    width:48px;
+    border:1px solid #e4a0a8;
+    border-radius:10px;
+    background:var(--red-soft);
+    color:var(--red);
+    font-size:18px;
+    cursor:pointer;
+    font-weight:900;
+  }
+  .history { margin-top:16px; }
+  .history-item { padding:11px 0; border-bottom:1px solid var(--border); font-size:12px; }
+  .history-item:last-child { border-bottom:0; }
+  @media(max-width:650px) {
+    .levels, .close-grid { grid-template-columns:1fr; }
+    .wrap { padding-top:20px; }
+    h1 { font-size:23px; }
+  }
+
+.schedule-alert-panel{margin:16px 0;padding:16px;border:1px solid #d8dee9;border-radius:12px}
+.schedule-alert-title{font-weight:800;margin-bottom:12px}
+.schedule-alert-grid{display:grid;gap:10px}
+.schedule-alert-btn{border:1px solid #2d6cdf;background:#f7f9ff;color:#173b7a;padding:10px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-size:12px;text-align:left}
+.schedule-alert-btn:hover{background:#eaf0ff}
+.schedule-alert-btn:disabled{cursor:default;opacity:.75}
+
+</style>
+
+<style>
+.hours-alert{
+  display:flex;align-items:center;gap:12px;padding:15px 16px;border-radius:13px;
+  background:#f3f5f8;border:1px solid var(--border);margin-bottom:16px;
+}
+.alert-dot{width:11px;height:11px;border-radius:50%;background:#98a2b3;flex:none}
+.alert-title{font-size:12px;font-weight:900;letter-spacing:.7px}
+.alert-text{font-size:13px;color:var(--muted);margin-top:3px}
+.hours-alert.active{background:#edf9f3;border-color:#b8e5cd}
+.hours-alert.active .alert-dot{background:#16845B;box-shadow:0 0 0 5px rgba(22,132,91,.10)}
+.hours-alert.active .alert-title{color:#16845B}
+.trading-hours-list{display:flex;flex-direction:column;gap:10px}
+.hours-row{
+  display:grid;grid-template-columns:1.1fr .8fr 35px 1.1fr .8fr;
+  align-items:center;gap:8px;padding:16px;border:1px solid var(--border);
+  border-radius:13px;background:#fff;
+}
+.hours-row.active{border-color:#16845B;background:#f8fffb}
+.hours-time,.hours-ny{font-size:20px;font-weight:900}
+.hours-zone{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.6px}
+.hours-arrow{text-align:center;color:var(--muted);font-size:20px}
+@media(max-width:700px){
+  .hours-row{grid-template-columns:1fr 1fr;gap:6px 12px}
+  .hours-arrow{display:none}
+  .hours-time{grid-column:1}
+  .hours-ny{grid-column:2;grid-row:1}
+  .hours-row .hours-zone:nth-of-type(1){grid-column:1}
+  .hours-row .hours-zone:nth-of-type(2){grid-column:2}
+}
+</style>
+
+
+<style id="iphone-safe-fix">
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+body {
+  min-height: 100vh;
+  min-height: 100svh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+button, input, select, textarea {
+  font: inherit;
+}
+button {
+  -webkit-tap-highlight-color: rgba(0,0,0,.08);
+  touch-action: manipulation;
+  cursor: pointer;
+}
+input, select, textarea {
+  font-size: 16px !important;
+}
+.tabs {
+  position: relative !important;
+  z-index: 1 !important;
+}
+.tab, button {
+  position: relative;
+  z-index: 2;
+}
+.panel {
+  position: relative;
+  z-index: 1;
+}
+.toast {
+  pointer-events: none !important;
+}
+@media (max-width: 600px) {
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab {
+    flex: 1 0 auto;
+    min-height: 46px;
+    padding: 12px 10px;
+  }
+  button {
+    min-height: 44px;
+  }
+}
+</style>
+
+</head>
+<body>
+<noscript><div style="padding:20px;font-family:Arial">Este panel necesita JavaScript activado en el navegador.</div></noscript>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>MNQ Trade Panel</h1>
+      <div class="subtitle">35 pts SL · 50 pts TP · −$280 / +$400</div>
+    </div>
+    <div class="status"><span id="statusDot" class="dot"></span><span id="statusText">Webhook no configurado</span></div>
+  </header>
+
+  <div class="tabs">
+    <button type="button" class="tab active" data-tab="entrada">Entrada</button>
+    <button type="button" class="tab" data-tab="cierre">Cierre</button>
+    <button type="button" class="tab" data-tab="recap">Recap</button>
+    <button type="button" class="tab" data-tab="horarios">Horarios</button>
+<div class="schedule-alert-panel">
+  <div class="schedule-alert-title">📣 ALERTAS DE INICIO — NEW YORK</div>
+  <div class="schedule-alert-grid">
+    <button type="button" class="schedule-alert-btn" data-window-index="0">02:00–05:00 · AVISAR AL GRUPO</button>
+    <button type="button" class="schedule-alert-btn" data-window-index="1">09:30–11:30 · AVISAR AL GRUPO</button>
+    <button type="button" class="schedule-alert-btn" data-window-index="2">13:00–15:00 · AVISAR AL GRUPO</button>
+  </div>
+</div>
+
+    <button type="button" class="tab" data-tab="config">Configuración</button>
+  </div>
+
+  <section id="entrada" class="panel active">
+    <div class="card">
+      <div class="section-title">Nueva operación</div>
+      <label class="label" for="entry">Entry Price</label>
+      <input id="entry" type="number" step="0.25" placeholder="Ej. 23500.00" autocomplete="off">
+
+      <div class="direction">
+        <button type="button" class="dir buy selected" id="buyBtn">▲ BUY</button>
+        <button type="button" class="dir sell" id="sellBtn">▼ SELL</button>
+      </div>
+
+      <div class="levels">
+        <div class="level"><small>Entry</small><strong id="entryView">—</strong></div>
+        <div class="level"><small>Stop Loss · 35 pts</small><strong id="slView">—</strong></div>
+        <div class="level"><small>Take Profit · 50 pts</small><strong id="tpView">—</strong></div>
+      </div>
+
+      <div class="risk">
+        <div class="metric"><span>RIESGO</span><b>−$280</b></div>
+        <div class="metric"><span>OBJETIVO</span><b>+$400</b></div>
+      </div>
+
+      <button type="button" class="btn buy" id="sendEntry">ENVIAR BUY A DISCORD</button>
+    </div>
+
+    <div class="card history">
+      <div class="section-title">Últimas acciones</div>
+      <div id="historyList"><div class="help">Todavía no hay acciones.</div></div>
+    </div>
+  </section>
+
+  <section id="cierre" class="panel">
+    <div class="card">
+      <div class="section-title">Cierre de operación</div>
+      <div class="close-grid">
+        <button type="button" class="close-btn tp" id="tpClose">✓ TP +$400<span>Cerrar por objetivo</span></button>
+        <button type="button" class="close-btn sl" id="slClose">× SL −$280<span>Cerrar por stop</span></button>
+        <button type="button" class="close-btn" id="beClose" style="color:var(--blue);background:#f5f8fd;border-color:#b8c8df">＝ BE $0<span>Cerrar en breakeven</span></button>
+      </div>
+
+      <div style="height:14px"></div>
+      <div class="section-title" style="font-size:14px">Estado de la orden</div>
+      <div class="close-grid">
+        <button type="button" class="close-btn" id="buyActivated" style="color:var(--green);background:#f7fffb;border-color:#b5e4cf">
+          ✓ BUY LIMIT ACTIVADA<span>Confirmar que la Buy Limit entró</span>
+        </button>
+        <button type="button" class="close-btn" id="sellActivated" style="color:var(--red);background:#fffafb;border-color:#efc0c6">
+          ✓ SELL LIMIT ACTIVADA<span>Confirmar que la Sell Limit entró</span>
+        </button>
+      </div>
+
+      <button type="button" class="close-btn" id="cancelOrder" style="width:100%;margin-top:14px;min-height:105px;color:#596273;background:#f7f8fa;border-color:#d9dee8">
+        ⏹ CANCELAR ORDEN
+        <span>Confirmar que la orden pendiente fue cancelada</span>
+      </button>
+
+      <button type="button" class="close-btn" id="beMoved" style="width:100%;margin-top:14px;min-height:105px;color:var(--blue);background:#f5f8fd;border-color:#b8c8df">
+        ⊙ SL MOVIDO A BREAKEVEN
+        <span>Confirmar que el Stop Loss está en BE</span>
+      </button>
+
+      <div class="help">Los botones envían únicamente una notificación a Discord. No ejecutan, modifican ni cancelan órdenes en Tradovate, Apex ni TradeSyncer.</div>
+    </div>
+  </section>
+
+
+
+  <section id="recap" class="panel">
+    <div class="card">
+      <div class="section-title">Recap de trading</div>
+      <div class="tabs" style="margin-bottom:0">
+        <button type="button" class="tab active" id="dailyRecapTab">Daily Recap</button>
+        <button type="button" class="tab" id="weeklyRecapTab">Weekly Recap</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title" id="recapTitle">Daily Recap</div>
+      <div class="help" style="font-size:13px;margin-bottom:14px">
+        Introduce manualmente el resultado de cada trade. El panel calcula automáticamente
+        P&L y Win Rate usando TP = +$400, SL = −$280 y BE = $0.
+      </div>
+      <div id="manualTrades"></div>
+      <button type="button" class="btn" id="addTrade" style="background:var(--blue);margin-top:12px">+ AÑADIR TRADE</button>
+      <button type="button" class="btn" id="clearRecap" style="background:#8a93a3;margin-top:10px">LIMPIAR ESTE RECAP</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Estadísticas calculadas</div>
+      <div class="levels">
+        <div class="level"><small>Trades</small><strong id="rTrades">0</strong></div>
+        <div class="level"><small>Win Rate</small><strong id="rWinRate">0%</strong></div>
+        <div class="level"><small>P&L</small><strong id="rPnl">$0</strong></div>
+      </div>
+      <div class="risk">
+        <div class="metric"><span>WINS / TP</span><b id="rWins">0</b></div>
+        <div class="metric"><span>LOSSES / SL</span><b id="rLosses">0</b></div>
+      </div>
+      <div class="risk">
+        <div class="metric"><span>BREAKEVEN</span><b id="rBE">0</b></div>
+        <div class="metric"><span>RESULTADO NETO</span><b id="rNet">$0</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Resumen</div>
+      <div id="recapSummary" class="help" style="font-size:14px;line-height:1.7">
+        Añade los resultados de tus trades para generar el resumen.
+      </div>
+      <button type="button" class="btn" id="sendRecap" style="background:var(--blue)">ENVIAR RECAP A DISCORD</button>
+    </div>
+  </section>
+
+
+  <section id="horarios" class="panel">
+    <div class="card">
+      <div class="section-title">Horarios de Trading</div>
+      <div class="help" style="margin-bottom:16px">
+        Estos son tus periodos de trading. La hora principal se muestra en Budapest
+        y debajo su equivalente actual en New York. Durante cualquiera de estos
+        periodos, <strong>puede recibirse una señal en cualquier momento</strong>.
+      </div>
+
+      <div class="hours-alert" id="tradingAlert">
+        <div class="alert-dot"></div>
+        <div>
+          <div class="alert-title" id="alertTitle">FUERA DE HORARIO</div>
+          <div class="alert-text" id="alertText">No estás dentro de uno de tus periodos de trading.</div>
+        </div>
+      </div>
+
+      <div class="trading-hours-list">
+        <div class="hours-row" data-start="08:00" data-end="11:00">
+          <div class="hours-time">08:00 — 11:00</div>
+          <div class="hours-zone">BUDAPEST</div>
+          <div class="hours-arrow">→</div>
+          <div class="hours-ny" id="ny1">02:00 — 05:00</div>
+          <div class="hours-zone">NEW YORK</div>
+        </div>
+
+        <div class="hours-row" data-start="15:30" data-end="17:30">
+          <div class="hours-time">15:30 — 17:30</div>
+          <div class="hours-zone">BUDAPEST</div>
+          <div class="hours-arrow">→</div>
+          <div class="hours-ny" id="ny2">09:30 — 11:30</div>
+          <div class="hours-zone">NEW YORK</div>
+        </div>
+
+        <div class="hours-row" data-start="19:00" data-end="21:00">
+          <div class="hours-time">19:00 — 21:00</div>
+          <div class="hours-zone">BUDAPEST</div>
+          <div class="hours-arrow">→</div>
+          <div class="hours-ny" id="ny3">13:00 — 15:00</div>
+          <div class="hours-zone">NEW YORK</div>
+        </div>
+      </div>
+
+      <div class="help" style="margin-top:16px">
+        El horario de New York se calcula automáticamente teniendo en cuenta los
+        cambios de horario de verano/invierno de Budapest y New York.
+      </div>
+    </div>
+  </section>
+
+  <section id="config" class="panel">
+    <div class="card">
+      <div class="section-title">Discord Webhook</div>
+      <label class="label" for="webhook">Webhook URL</label>
+      <input id="webhook" type="url" placeholder="https://discord.com/api/webhooks/...">
+      <div class="help">
+        Crea un Webhook en el canal de Discord donde quieras recibir las alertas y pega aquí la URL.
+        La URL se guarda solamente en este navegador mediante localStorage.
+      </div>
+      <button type="button" class="btn" id="saveWebhook" style="background:var(--blue)">GUARDAR WEBHOOK</button>
+      <button type="button" class="btn" id="testWebhook" style="background:#6b7280">ENVIAR MENSAJE DE PRUEBA</button>
+    </div>
+  </section>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+  const SL_POINTS = 35;
+  const TP_POINTS = 50;
+  const RISK_USD = 280;
+  const TARGET_USD = 400;
+
+  let direction = "BUY";
+  let webhook = localStorage.getItem("discordWebhook") || "";
+  const $ = id => document.getElementById(id);
+
+  $("webhook").value = webhook;
+  updateStatus();
+  updateButton();
+
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
+      btn.classList.add("active");
+      $(btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  $("buyBtn").onclick = () => setDirection("BUY");
+  $("sellBtn").onclick = () => setDirection("SELL");
+  $("entry").addEventListener("input", calculate);
+
+  function setDirection(dir) {
+    direction = dir;
+    $("buyBtn").classList.toggle("selected", dir === "BUY");
+    $("sellBtn").classList.toggle("selected", dir === "SELL");
+    calculate();
+    updateButton();
+  }
+
+  function calculate() {
+    const entry = parseFloat($("entry").value);
+    if (!Number.isFinite(entry)) {
+      $("entryView").textContent = "—";
+      $("slView").textContent = "—";
+      $("tpView").textContent = "—";
+      return;
+    }
+    const sl = direction === "BUY" ? entry - SL_POINTS : entry + SL_POINTS;
+    const tp = direction === "BUY" ? entry + TP_POINTS : entry - TP_POINTS;
+    $("entryView").textContent = fmt(entry);
+    $("slView").textContent = fmt(sl);
+    $("tpView").textContent = fmt(tp);
+  }
+
+  function fmt(n) {
+    return Number(n).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+
+  function updateButton() {
+    const b = $("sendEntry");
+    b.textContent = `ENVIAR ${direction} A DISCORD`;
+    b.className = "btn " + (direction === "BUY" ? "buy" : "sell");
+  }
+
+  $("saveWebhook").onclick = () => {
+    webhook = $("webhook").value.trim();
+    if (!webhook.startsWith("https://discord.com/api/webhooks/") &&
+        !webhook.startsWith("https://discordapp.com/api/webhooks/")) {
+      showToast("La URL del webhook no parece válida.");
+      return;
+    }
+    localStorage.setItem("discordWebhook", webhook);
+    updateStatus();
+    showToast("Webhook guardado.");
+  };
+
+  $("testWebhook").onclick = async () => {
+    if (!getWebhook()) return;
+    await sendDiscord({
+      title: "🧪 TEST — MNQ Trade Panel",
+      description: "Webhook conectado correctamente.",
+      color: 0x173B72
+    });
+  };
+
+  $("sendEntry").onclick = async () => {
+    const entry = parseFloat($("entry").value);
+    if (!Number.isFinite(entry)) {
+      showToast("Introduce un Entry Price.");
+      $("entry").focus();
+      return;
+    }
+    if (!getWebhook()) return;
+
+    const sl = direction === "BUY" ? entry - SL_POINTS : entry + SL_POINTS;
+    const tp = direction === "BUY" ? entry + TP_POINTS : entry - TP_POINTS;
+
+    const payload = {
+      username: "MNQ Trade Panel",
+      embeds: [{
+        title: `${direction === "BUY" ? "🟢 BUY LIMIT" : "🔴 SELL LIMIT"} — MNQ`,
+        color: direction === "BUY" ? 0x16845B : 0xC43D4B,
+        fields: [
+          { name: "Orden", value: direction === "BUY" ? "BUY LIMIT" : "SELL LIMIT", inline: true },
+          { name: "Entry", value: fmt(entry), inline: true },
+          { name: "SL", value: fmt(sl) + "  (35 pts)", inline: true },
+          { name: "TP", value: fmt(tp) + "  (50 pts)", inline: true },
+          { name: "Risk", value: "−$280", inline: true },
+          { name: "Target", value: "+$400", inline: true },
+          { name: "RR", value: "1 : 1.43", inline: true }
+        ],
+        footer: { text: "MNQ Trade Panel" },
+        timestamp: new Date().toISOString()
+      }]
+    };
+
+    const ok = await postDiscord(payload);
+    if (ok) { saveEvent({ type: "entry", direction, entry, sl, tp }); addHistory(`${direction} LIMIT · Entry ${fmt(entry)} · SL ${fmt(sl)} · TP ${fmt(tp)}`);  }
+  };
+
+  $("tpClose").onclick = async () => {
+    if (!getWebhook()) return;
+    const ok = await sendDiscord({
+      title: "🟢 TRADE CERRADO — TP",
+      description: "Operación cerrada por Take Profit.",
+      fields: [
+        { name: "Resultado", value: "+$400", inline: true },
+        { name: "Tipo de cierre", value: "TP · +50 pts", inline: true }
+      ],
+      color: 0x16845B
+    });
+    if (ok) { saveEvent({ type: "close", result: "TP", pnl: TARGET_USD }); addHistory("CIERRE · TP +$400");  }
+  };
+
+  $("slClose").onclick = async () => {
+    if (!getWebhook()) return;
+    const ok = await sendDiscord({
+      title: "🔴 TRADE CERRADO — SL",
+      description: "Operación cerrada por Stop Loss.",
+      fields: [
+        { name: "Resultado", value: "−$280", inline: true },
+        { name: "Tipo de cierre", value: "SL · −35 pts", inline: true }
+      ],
+      color: 0xC43D4B
+    });
+    if (ok) { saveEvent({ type: "close", result: "SL", pnl: -RISK_USD }); addHistory("CIERRE · SL −$280");  }
+  };
+
+  $("beClose").onclick = async () => {
+    if (!getWebhook()) return;
+    const ok = await sendDiscord({
+      title: "⚪ TRADE CERRADO — BE",
+      description: "Operación cerrada en Breakeven.",
+      fields: [
+        { name: "Resultado", value: "$0", inline: true },
+        { name: "Tipo de cierre", value: "BE · $0", inline: true }
+      ],
+      color: 0x808892
+    });
+    if (ok) { saveEvent({ type: "close", result: "BE", pnl: 0 }); addHistory("CIERRE · BE $0"); }
+  };
+
+  $("buyActivated").onclick = async () => {
+    if (!getWebhook()) return;
+    const ok = await sendDiscord({
+      title: "🟢 BUY LIMIT ACTIVADA",
+      description: "Confirmación manual: la orden BUY LIMIT ha sido activada.",
+      fields: [
+        { name: "Estado", value: "ACTIVADA", inline: true },
+        { name: "Tipo", value: "BUY LIMIT", inline: true }
+      ],
+      color: 0x16845B
+    });
+    if (ok) { saveEvent({ type: "activated", direction: "BUY" }); addHistory("BUY LIMIT · ACTIVADA");  }
+  };
+
+  $("sellActivated").onclick = async () => {
+    if (!getWebhook()) return;
+    const ok = await sendDiscord({
+      title: "🔴 SELL LIMIT ACTIVADA",
+      description: "Confirmación manual: la orden SELL LIMIT ha sido activada.",
+      fields: [
+        { name: "Estado", value: "ACTIVADA", inline: true },
+        { name: "Tipo", value: "SELL LIMIT", inline: true }
+      ],
+      color: 0xC43D4B
+    });
+    if (ok) { saveEvent({ type: "activated", direction: "SELL" }); addHistory("SELL LIMIT · ACTIVADA");  }
+  };
+
+  $("cancelOrder").onclick = async () => {
+    if (!getWebhook()) return;
+    const ok = await sendDiscord({
+      title: "⏹ ORDEN CANCELADA",
+      description: "Confirmación manual: la orden LIMIT pendiente ha sido cancelada.",
+      fields: [
+        { name: "Estado", value: "CANCELADA", inline: true },
+        { name: "Tipo", value: "ORDEN PENDIENTE", inline: true }
+      ],
+      color: 0x596273
+    });
+    if (ok) { saveEvent({ type: "cancelled" }); addHistory("ORDEN LIMIT · CANCELADA");  }
+  };
+
+
+
+  let recapPeriod = "daily";
+  const RECAP_KEY = "mnqManualRecaps";
+
+  function loadRecaps() {
+    try {
+      const data = JSON.parse(localStorage.getItem(RECAP_KEY) || "{}");
+      return {
+        daily: Array.isArray(data.daily) ? data.daily : [],
+        weekly: Array.isArray(data.weekly) ? data.weekly : []
+      };
+    } catch {
+      return { daily: [], weekly: [] };
+    }
+  }
+
+  function saveRecaps(data) {
+    localStorage.setItem(RECAP_KEY, JSON.stringify(data));
+  }
+
+  function currentTrades() {
+    return loadRecaps()[recapPeriod];
+  }
+
+  function addManualTrade(result = "TP") {
+    const data = loadRecaps();
+    data[recapPeriod].push({ result });
+    saveRecaps(data);
+    renderManualTrades();
+  }
+
+  function removeManualTrade(index) {
+    const data = loadRecaps();
+    data[recapPeriod].splice(index, 1);
+    saveRecaps(data);
+    renderManualTrades();
+  }
+
+  function renderManualTrades() {
+    const container = $("manualTrades");
+    const trades = currentTrades();
+    container.innerHTML = "";
+
+    if (!trades.length) {
+      container.innerHTML = '<div class="help">No hay trades introducidos todavía.</div>';
+    }
+
+    trades.forEach((trade, index) => {
+      const row = document.createElement("div");
+      row.className = "trade-row";
+
+      const number = document.createElement("div");
+      number.innerHTML = `<span class="label">Trade</span><strong>#${index + 1}</strong>`;
+
+      const selectWrap = document.createElement("div");
+      const label = document.createElement("span");
+      label.className = "label";
+      label.textContent = "Resultado";
+
+      const select = document.createElement("select");
+      select.className = "trade-result";
+      select.innerHTML = `
+        <option value="TP" ${trade.result === "TP" ? "selected" : ""}>TP · +$400</option>
+        <option value="SL" ${trade.result === "SL" ? "selected" : ""}>SL · −$280</option>
+        <option value="BE" ${trade.result === "BE" ? "selected" : ""}>BE · $0</option>
+      `;
+      select.onchange = () => {
+        const data = loadRecaps();
+        data[recapPeriod][index].result = select.value;
+        saveRecaps(data);
+        updateRecapStats();
+      };
+
+      selectWrap.append(label, select);
+
+      const remove = document.createElement("button");
+      remove.className = "remove-trade";
+      remove.title = "Eliminar trade";
+      remove.textContent = "×";
+      remove.onclick = () => removeManualTrade(index);
+
+      row.append(number, selectWrap, remove);
+      container.appendChild(row);
+    });
+
+    updateRecapStats();
+  }
+
+  function calculateManualRecap() {
+    const trades = currentTrades();
+    const wins = trades.filter(t => t.result === "TP").length;
+    const losses = trades.filter(t => t.result === "SL").length;
+    const be = trades.filter(t => t.result === "BE").length;
+
+    // Win Rate = TP / (TP + SL). BE no cuenta para el Win Rate.
+    const decisiveTrades = wins + losses;
+    const winRate = decisiveTrades ? (wins / decisiveTrades) * 100 : 0;
+    const pnl = wins * TARGET_USD - losses * RISK_USD;
+
+    return { trades: trades.length, wins, losses, be, pnl, winRate };
+  }
+
+  function updateRecapStats() {
+    const r = calculateManualRecap();
+
+    $("rTrades").textContent = r.trades;
+    $("rWinRate").textContent = r.winRate.toFixed(1) + "%";
+    $("rPnl").textContent = (r.pnl >= 0 ? "+$" : "−$") + Math.abs(r.pnl).toFixed(0);
+    $("rWins").textContent = r.wins;
+    $("rLosses").textContent = r.losses;
+    $("rBE").textContent = r.be;
+    $("rNet").textContent = (r.pnl >= 0 ? "+$" : "−$") + Math.abs(r.pnl).toFixed(0);
+
+    if (!r.trades) {
+      $("recapSummary").textContent = "Añade los resultados de tus trades para generar el resumen.";
+    } else {
+      const netText = r.pnl >= 0
+        ? `ganancia neta de $${r.pnl.toFixed(0)}`
+        : `pérdida neta de $${Math.abs(r.pnl).toFixed(0)}`;
+
+      $("recapSummary").textContent =
+        `${r.trades} trades: ${r.wins} TP, ${r.losses} SL y ${r.be} BE. ` +
+        `Win Rate: ${r.winRate.toFixed(1)}%. Resultado: ${netText}.`;
+    }
+  }
+
+  $("addTrade").onclick = () => addManualTrade("TP");
+
+  $("clearRecap").onclick = () => {
+    if (!confirm(`¿Quieres borrar todos los trades del ${recapPeriod === "daily" ? "Daily" : "Weekly"} Recap?`)) return;
+    const data = loadRecaps();
+    data[recapPeriod] = [];
+    saveRecaps(data);
+    renderManualTrades();
+  };
+
+  $("dailyRecapTab").onclick = () => {
+    recapPeriod = "daily";
+    $("dailyRecapTab").classList.add("active");
+    $("weeklyRecapTab").classList.remove("active");
+    $("recapTitle").textContent = "Daily Recap";
+    renderManualTrades();
+  };
+
+  $("weeklyRecapTab").onclick = () => {
+    recapPeriod = "weekly";
+    $("weeklyRecapTab").classList.add("active");
+    $("dailyRecapTab").classList.remove("active");
+    $("recapTitle").textContent = "Weekly Recap";
+    renderManualTrades();
+  };
+
+  $("beMoved").onclick = async () => {
+    if (!getWebhook()) return;
+    const ok = await sendDiscord({
+      title: "🔵 SL MOVIDO A BREAKEVEN",
+      description: "El Stop Loss ha sido movido al precio de entrada. La operación SIGUE ABIERTA.",
+      fields: [
+        { name: "Acción", value: "SL → BREAKEVEN", inline: true },
+        { name: "Estado", value: "OPERACIÓN ABIERTA", inline: true }
+      ],
+      color: 0x173B72
+    });
+    if (ok) addHistory("GESTIÓN · SL MOVIDO A BREAKEVEN");
+  };
+
+  function getWebhook() {
+    webhook = $("webhook").value.trim() || localStorage.getItem("discordWebhook") || "";
+    if (!webhook) {
+      showToast("Primero configura el Webhook de Discord.");
+      document.querySelector('[data-tab="config"]').click();
+      return false;
+    }
+    return true;
+  }
+
+  async function sendDiscord(embed) {
+    const payload = { username: "MNQ Trade Panel", embeds: [embed] };
+    return await postDiscord(payload);
+  }
+
+  async function postDiscord(payload) {
+    try {
+      const response = await fetch(webhook, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      showToast("Mensaje enviado a Discord ✓");
+      return true;
+    } catch (err) {
+      console.error(err);
+      showToast("No se pudo enviar. Comprueba el Webhook y Discord.");
+      return false;
+    }
+  }
+
+
+  $("sendRecap").onclick = async () => {
+    if (!getWebhook()) return;
+
+    const r = calculateManualRecap();
+    const periodName = recapPeriod === "daily" ? "DAILY RECAP" : "WEEKLY RECAP";
+    const pnlText = (r.pnl >= 0 ? "+$" : "−$") + Math.abs(r.pnl).toFixed(0);
+
+    const ok = await sendDiscord({
+      title: `📊 ${periodName} — MNQ`,
+      description: r.trades
+        ? `${r.trades} trades · ${r.winRate.toFixed(1)}% Win Rate`
+        : "Sin trades introducidos.",
+      fields: [
+        { name: "Trades", value: String(r.trades), inline: true },
+        { name: "Wins / TP", value: String(r.wins), inline: true },
+        { name: "Losses / SL", value: String(r.losses), inline: true },
+        { name: "Breakeven", value: String(r.be), inline: true },
+        { name: "Win Rate", value: r.winRate.toFixed(1) + "%", inline: true },
+        { name: "P&L", value: pnlText, inline: true }
+      ],
+      color: r.pnl >= 0 ? 0x16845B : 0xC43D4B
+    });
+
+    if (ok) addHistory(`${periodName} · ${pnlText}`);
+  };
+
+  function updateStatus() {
+    const ok = !!webhook;
+    $("statusDot").classList.toggle("ok", ok);
+    $("statusText").textContent = ok ? "Webhook configurado" : "Webhook no configurado";
+  }
+
+  function addHistory(text) {
+    const list = $("historyList");
+    if (list.querySelector(".help")) list.innerHTML = "";
+    const item = document.createElement("div");
+    item.className = "history-item";
+    item.textContent = new Date().toLocaleTimeString() + "  ·  " + text;
+    list.prepend(item);
+    while (list.children.length > 10) list.lastElementChild.remove();
+  }
+
+  let toastTimer;
+  function showToast(text) {
+    const t = $("toast");
+    t.textContent = text;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+  }
+
+  // Final initialization after every function/handler has been defined.
+  
+  renderManualTrades();
+</script>
+
+<script>
+(function(){
+  const TRADING_WINDOWS = [
+    ["08:00","11:00"],
+    ["15:30","17:30"],
+    ["19:00","21:00"]
+  ];
+
+  function minutes(t){ const [h,m]=t.split(":").map(Number); return h*60+m; }
+
+  function formatInZone(date, zone){
+    return new Intl.DateTimeFormat("en-US",{
+      timeZone:zone,hour:"2-digit",minute:"2-digit",hour12:false
+    }).format(date);
+  }
+
+  function zoneMinutes(date, zone){
+    const parts = new Intl.DateTimeFormat("en-US",{
+      timeZone:zone,hour:"2-digit",minute:"2-digit",hourCycle:"h23"
+    }).formatToParts(date);
+    const h = Number(parts.find(x=>x.type==="hour").value);
+    const m = Number(parts.find(x=>x.type==="minute").value);
+    return h*60+m;
+  }
+
+  function updateTradingHours(){
+    const now = new Date();
+    const budMin = zoneMinutes(now,"Europe/Budapest");
+    let activeIndex = -1;
+
+    TRADING_WINDOWS.forEach((w,i)=>{
+      if(budMin >= minutes(w[0]) && budMin < minutes(w[1])) activeIndex=i;
+    });
+
+    document.querySelectorAll("#horarios .hours-row").forEach((row,i)=>{
+      row.classList.toggle("active",i===activeIndex);
+    });
+
+    const alert = document.getElementById("tradingAlert");
+    const title = document.getElementById("alertTitle");
+    const text = document.getElementById("alertText");
+
+    if(activeIndex >= 0){
+      alert.classList.add("active");
+      title.textContent = "🟢 HORARIO DE TRADING ACTIVO";
+      text.textContent = "Puede recibirse una señal en cualquier momento durante este periodo.";
+    }else{
+      alert.classList.remove("active");
+      title.textContent = "⚪ FUERA DE HORARIO";
+      text.textContent = "No estás dentro de uno de tus periodos de trading.";
+    }
+
+    document.querySelectorAll("#horarios .hours-row").forEach((row,i)=>{
+      const [s,e]=TRADING_WINDOWS[i];
+      const d1 = new Date(now), d2 = new Date(now);
+      const ny1 = formatInZone(d1,"America/New_York");
+      // Build the NY equivalents from the same Budapest wall-clock endpoints.
+      // Calculate the offset between zones at this instant; DST is therefore respected.
+      const budNow = formatInZone(now,"Europe/Budapest");
+      const nyNow = formatInZone(now,"America/New_York");
+
+      const budOffsetMin = zoneMinutes(now,"Europe/Budapest");
+      const nyOffsetMin = zoneMinutes(now,"America/New_York");
+      let diff = nyOffsetMin - budOffsetMin;
+      // Wall-clock difference can wrap around midnight.
+      if(diff > 720) diff -= 1440;
+      if(diff < -720) diff += 1440;
+
+      function convert(t){
+        let x = minutes(t) + diff;
+        x = ((x % 1440) + 1440) % 1440;
+        return String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0");
+      }
+      const nyStart = convert(s), nyEnd = convert(e);
+      const nyEl = row.querySelector(".hours-ny");
+      if(nyEl) nyEl.textContent = nyStart + " — " + nyEnd;
+    });
+  }
+
+  updateTradingHours();
+  setInterval(updateTradingHours, 1000);
+})();
+</script>
+
+
+<script>
+(function(){
+  const msgs=[
+    "🚨 INICIO DE HORARIO DE TRADING — NY 02:00–05:00\nEn cualquier momento pueden recibir una señal.",
+    "🚨 INICIO DE HORARIO DE TRADING — NY 09:30–11:30\nEn cualquier momento pueden recibir una señal.",
+    "🚨 INICIO DE HORARIO DE TRADING — NY 13:00–15:00\nEn cualquier momento pueden recibir una señal."
+  ];
+  function webhook(){
+    const keys=["discordWebhook","discord_webhook","webhookUrl","webhook"];
+    for(const k of keys){const v=localStorage.getItem(k);if(v)return v;}
+    return "";
+  }
+  document.querySelectorAll(".schedule-alert-btn").forEach(btn=>{
+    btn.addEventListener("click",async()=>{
+      const url=webhook();
+      if(!url){alert("Configura primero el Discord Webhook en Config.");return;}
+      btn.disabled=true;
+      try{
+        const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({content:msgs[+btn.dataset.windowIndex]})});
+        if(!r.ok) throw new Error();
+        btn.textContent="✅ ALERTA ENVIADA";
+        setTimeout(()=>{btn.textContent=["02:00–05:00","09:30–11:30","13:00–15:00"][+btn.dataset.windowIndex]+" · AVISAR AL GRUPO";btn.disabled=false},2500);
+      }catch(e){alert("No se pudo enviar la alerta. Comprueba el Webhook en Config.");btn.disabled=false;}
+    });
+  });
+})();
+</script>
+
+
+<script id="iphone-tab-fallback">
+(function () {
+  function initSafeTabs() {
+    document.addEventListener('click', function (event) {
+      var tab = event.target.closest && event.target.closest('.tab');
+      if (!tab) return;
+
+      var target = tab.getAttribute('data-tab') ||
+                   tab.getAttribute('data-target') ||
+                   tab.getAttribute('aria-controls');
+
+      if (!target) {
+        var onclick = tab.getAttribute('onclick') || '';
+        var m = onclick.match(/['"]([^'"]+)['"]/);
+        if (m) target = m[1];
+      }
+      if (!target) return;
+
+      var tabs = document.querySelectorAll('.tab');
+      var panels = document.querySelectorAll('.panel');
+
+      tabs.forEach(function (t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+
+      panels.forEach(function (p) {
+        var id = p.id;
+        var shouldShow = id === target || id === target.replace(/^#/, '');
+        p.classList.toggle('active', shouldShow);
+        if (shouldShow) p.style.display = '';
+        else p.style.display = 'none';
+      });
+    }, {passive: true});
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSafeTabs, {once: true});
+  } else {
+    initSafeTabs();
+  }
+})();
+</script>
+
+</body>
+</html>
